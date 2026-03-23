@@ -68,34 +68,72 @@ Traditional recommender systems optimize almost exclusively for single-objective
 This repository implements a state-of-the-art **Multi-Objective Reinforcement Learning (MORL)** framework. We model the recommendation task as a Multi-Objective Markov Decision Process (MOMDP). Using an Item-Centric Pareto-DQN agent, the system learns to navigate the complex Pareto frontier across three non-aggregable objectives: User Engagement, Information Diversity, and Provider Fairness.
 
 ---
-
 ## 🧮 Mathematical Fundamentals
 
-The recommendation environment is formalized as an MOMDP. 
+The recommendation environment is formalized as a Multi-Objective Markov Decision Process (MOMDP) defined by the tuple $\langle \mathcal{S}, \mathcal{A}, \mathcal{P}, \mathbf{R}, \gamma \rangle$.
 
-### 1. State Space (S)
-The user's state `s_t` is a continuous semantic centroid representing their historical preferences. It is computed by aggregating the L2-normalized dense embeddings `v_i` of the movies they have positively interacted with:
-`s_t = (Σ v_i) / |H_t|`
+### 1. State Space ($\mathcal{S}$)
+The user's state $s_t \in \mathbb{R}^d$ is a continuous semantic centroid representing their historical preferences in a dense latent space (where $d = 384$). It is computed by averaging the normalized embeddings of the movies they have liked:
 
-### 2. Action Space (A)
-Due to the intractable size of the full item catalog (e.g., 60,000+ items), the action space is dynamically bounded at each timestep `t`. The environment generates a candidate set of size `K`. The agent's action `a_t` selects an item embedding `v_a` from this subset.
+$$s_t = \frac{\sum_{i \in H_t} v_i}{|H_t|}$$
 
-### 3. Transition Dynamics (Preference Drift)
-To maintain the Markov property and model shifting user interests, we apply a Preference Drift equation upon a successful recommendation. 
-`s_{t+1} = [(1 - α)s_t + α v_a] / ||(1 - α)s_t + α v_a||`
+**Where:**
+* $s_t$: The continuous user state vector at timestep $t$.
+* $H_t$: The historical set of items the user has positively interacted with up to time $t$.
+* $v_i$: The $L_2$-normalized dense semantic embedding of item $i$ (extracted via NLP).
+* $|H_t|$: The total number of items in the user's history set.
 
-### 4. Vectorial Reward Function (R)
-The environment returns a 3-dimensional reward vector:
-* **Engagement (Utility):** A shaped continuous proxy using the sigmoid of the semantic dot product.
-  `r_eng = 1 / (1 + e^(-s_t · v_a))`
-* **Information Diversity:** Measured as the cosine distance to break filter bubbles.
-  `r_div = 1 - cos(s_t, v_a)`
-* **Provider Fairness:** A logarithmic penalty based on the global historical exposure count `C(a_t)` of the item.
-  `r_fair = 1 / log(1 + C(a_t))`
+### 2. Action Space ($\mathcal{A}$)
+Due to the intractable size of the full item catalog ($|\mathcal{I}| > 60,000$), the action space is dynamically bounded. At each timestep $t$, the environment generates a candidate set $\mathcal{C}_t \subset \mathcal{I}$. 
 
-### 5. Pareto Optimality
-Because the objectives conflict, the agent evaluates the predicted Non-Dominated Set (`Q_set`) of future returns for each candidate and selects the action that maximizes the **Hypervolume**—the multidimensional integral of the objective space bounded by a reference point.
+The agent selects an action $a_t \in \{0, 1, \dots, K-1\}$, which points to a specific item embedding in the candidate set: $v_{a_t} \in \mathcal{C}_t$.
 
+**Where:**
+* $\mathcal{I}$: The global catalog of all available items (movies).
+* $\mathcal{C}_t$: The dynamically generated subset of candidates at time $t$.
+* $K$: The maximum size of the candidate pool (e.g., $100$).
+* $v_{a_t}$: The continuous semantic embedding of the specific item chosen by the agent.
+
+### 3. Transition Dynamics ($\mathcal{P}$)
+To maintain the Markov property and model shifting user interests, we apply a **Preference Drift** equation upon a successful recommendation. The user's state mathematically drifts towards the recommended item:
+
+$$s_{t+1} = \frac{(1 - \alpha)s_t + \alpha v_{a_t}}{||(1 - \alpha)s_t + \alpha v_{a_t}||_2}$$
+
+**Where:**
+* $s_{t+1}$: The new user state for the next timestep.
+* $\alpha$: The preference drift rate ($0 \le \alpha \le 1$), controlling how malleable the user's tastes are.
+* $s_t$: The current user state.
+* $v_{a_t}$: The embedding of the item just recommended to the user.
+* $|| \dots ||_2$: The $L_2$-norm operator, ensuring the new state remains on the unit hypersphere so that cosine similarity calculations remain valid.
+
+### 4. Vectorial Reward Function ($\mathbf{R}$)
+The environment returns a 3-dimensional reward vector $\mathbf{r}_t = [r_{eng}, r_{div}, r_{fair}]^T \in \mathbb{R}^3$ evaluating the action across three conflicting objectives:
+
+**I. Engagement (Utility):** A shaped continuous proxy for click-through likelihood.
+$$r_{eng}(s_t, v_{a_t}) = \frac{1}{1 + e^{-(s_t \cdot v_{a_t})}}$$
+* $s_t \cdot v_{a_t}$: The dot product between the user's state and the item embedding, representing their latent semantic affinity.
+
+**II. Information Diversity:** Measures semantic distance to prevent filter bubbles.
+$$r_{div}(s_t, v_{a_t}) = 1 - \cos(s_t, v_{a_t})$$
+* $\cos(s_t, v_{a_t})$: The cosine similarity between the user's history centroid and the recommended item. Subtracting it from $1$ rewards the agent for recommending orthogonal (unrelated) topics.
+
+**III. Provider Fairness:** A logarithmic penalty mitigating popularity bias.
+$$r_{fair}(a_t) = \frac{1}{\log(1 + C(a_t))}$$
+* $C(a_t)$: The global historical exposure count of the item $a_t$ across all users in the environment. Highly recommended blockbusters yield near-zero fairness reward, while niche items yield high rewards.
+
+### 5. Pareto Optimality and Hypervolume
+Because the objectives conflict, the agent calculates the non-dominated set of future returns ($Q_{set}$) using the Minkowski sum:
+
+$$Q_{set}(s_t, a_i) \leftarrow \mathbf{r}(s_t, a_i) \oplus \gamma ND_t(s_t, a_i)$$
+
+**Where:**
+* $Q_{set}(s_t, a_i)$: The set of all Pareto-optimal 3D return vectors if action $a_i$ is taken.
+* $\mathbf{r}(s_t, a_i)$: The immediate 3D reward vector.
+* $\oplus$: The Minkowski sum operator (vectorial addition of sets).
+* $\gamma$: The discount factor ($0 \le \gamma \le 1$) prioritizing immediate vs. future rewards.
+* $ND_t(s_t, a_i)$: The non-dominated set of future returns estimated by the neural network.
+
+    The agent selects the action $a_t$ whose $Q_{set}$ maximizes the **Hypervolume** (the multidimensional integral of the objective space bounded by a reference point).
 ---
 
 ## ⚙️ Key Parameters Explained
@@ -123,14 +161,15 @@ To successfully tune this system, you must understand the core parameters dictat
 ## 🧠 Core Architectural Innovations
 
 ### 1. Semantic Embeddings via NLP
-Standard collaborative filtering relies on interaction matrices, which lack context. We map items into a continuous semantic space using a HuggingFace `SentenceTransformer` (`all-MiniLM-L6-v2`) to generate dense, 384-dimensional embeddings from movie metadata.
+Standard collaborative filtering relies on interaction matrices, which lack context. We map items into a continuous semantic space using a HuggingFace `SentenceTransformer` (`all-MiniLM-L6-v2`) to generate dense, 384-dimensional embeddings ($v_a$) from movie metadata.
 
 ### 2. Overcoming the Cold Start Problem
-By shifting to semantic embeddings, our network achieves **Zero-Shot Generalization**. A brand-new movie with zero historical ratings can be evaluated immediately by passing its textual metadata through the encoder.
+Standard Deep Q-Networks maintain an output neuron for every item ID. If a new movie is released, the network breaks. By shifting to semantic embeddings, our network achieves **Zero-Shot Generalization**. A brand-new movie with zero historical ratings can be evaluated immediately by passing its textual metadata through the encoder.
 
-### 3. Item-Centric Q-Learning
-Instead of discrete action outputs, the networks take the user state `s_t` and item embedding `v_a` as inputs. The agent evaluates the dynamic candidates in a single batched forward pass.
-
+### 3. Item-Centric Q-Learning & Fairness-Aware Candidate Bounding
+To solve the curse of dimensionality, we decouple candidate generation from RL ranking:
+* **Stratified Candidate Pooling:** An Approximate Nearest Neighbors (ANN) index fetches items closest to the user's state. We explicitly inject a fixed ratio (e.g., 30%) of zero-exposure long-tail items into this pool, guaranteeing the agent has pathways to optimize $r_{fair}$.
+* **Item-Centric Networks:** Instead of discrete action outputs, the networks take the user state $s_t$ and item embedding $v_a$ as inputs: $f(s_t, v_a) \rightarrow \mathbb{R}^3$. The agent evaluates exactly 100 dynamic candidates per step in a single batched forward pass.
 ---
 
 ## 📂 File Architecture
