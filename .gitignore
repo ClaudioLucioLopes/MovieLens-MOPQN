@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+# Specific data
+# ml-latest-small/
+ml-latest-small.zip
+# Result images
+filter_bubble_analysis.png
+pareto_front_3d.png
+price_of_responsibility.png
+# OS files
+.DS_Store
