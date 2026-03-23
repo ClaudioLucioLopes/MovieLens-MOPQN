@@ -6,7 +6,7 @@ venv/
 ENV/
 env/
 # Specific data
-# ml-latest-small/
+ml-latest-small/
 ml-latest-small.zip
 # Result images
 filter_bubble_analysis.png
