@@ -6,10 +6,11 @@ import torch
 from MovieLensDataHandler import MovieLensDataHandler
 from MovieLensMOEnv import MovieLensMOEnv
 from Pareto import ParetoAgent
-from ReplayMemory import ItemCentricReplayBuffer
+from ReplayMemory import ItemCentricReplayBuffer, PreferenceAwareBuffer
 from StandardDQN import StandardDQNAgent 
+from EnvelopeMOAC import EnvelopeMOACAgent
 
-def train_agent(env, agent, buffer, episodes=100, batch_size=32):
+def train_ParetoDQN_agent(env, agent, buffer, episodes=100, batch_size=32):
     """Phase 2: Training via Experience Replay."""
     print("--- Starting Phase 2: Pareto-DQN Training ---")
     
@@ -99,120 +100,139 @@ def train_baseline_agent(env, agent, buffer, episodes=100, batch_size=32):
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
 
-def evaluate_agents(env, agent, num_episodes=20):
-    """Phase 3: Evaluation & Metric Collection."""
-    print("\n--- Starting Phase 3: Evaluation ---")
+def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
+    """Phase 2: Training the preference-conditioned Envelope MOAC."""
+    print("--- Starting Phase 2: Envelope MOAC Training ---")
     
-    metrics = {
-        'rewards': [],
-        'embedding_variances': [], # To track the filter bubble
-        'gini_coefficients': []
-    }
-    
-    for ep in range(num_episodes):
+    global_step = 0
+    for ep in range(episodes):
         state, info = env.reset(return_info=True)
+        # Step 2: Sample a preference w ~ Dirichlet for this episode
+        pref = agent.sample_preferences(batch_size=1)[0]
         terminal = False
-        
-        ep_rewards = np.zeros(3)
-        state_trajectory = [state]
+        ep_rewards = np.zeros(3) # Track rewards for logging
         
         while not terminal:
-            # Greedy selection (epsilon = 0)
-            agent.epsilon = 0.0
+            candidate_embs = info['candidate_embeddings']
+            # Select action based on state AND current preference
+            action_idx = agent.select_action(state, candidate_embs, pref)
+            chosen_item_emb = candidate_embs[action_idx]
+            
+            # Step Environment
+            next_state, reward, terminal, next_info = env.step(action_idx)
+            
+            # Store in PreferenceAwareBuffer
+            buffer.push(state, chosen_item_emb, reward, next_state, 
+                        next_info['candidate_embeddings'], terminal, pref)
+            
+            # Network Optimization (Experience Replay)
+            if len(buffer) > batch_size:
+                b_s, b_a, b_r, b_ns, b_nc, b_t, b_w = buffer.sample(batch_size)
+                
+                # Fix: Cast terminals to float32 to avoid boolean subtraction error
+                agent.update(
+                    torch.tensor(b_s, dtype=torch.float32).to(agent.device),
+                    torch.tensor(b_a, dtype=torch.float32).to(agent.device),
+                    torch.tensor(b_r, dtype=torch.float32).to(agent.device),
+                    torch.tensor(b_ns, dtype=torch.float32).to(agent.device),
+                    torch.tensor(b_t, dtype=torch.float32).to(agent.device),
+                    torch.tensor(b_w, dtype=torch.float32).to(agent.device)
+                )
+            
+            state = next_state
+            info = next_info
+            ep_rewards += reward # Accumulate rewards
+            global_step += 1
+            
+        # Logging every 10 episodes to match baseline style
+        if (ep + 1) % 10 == 0:
+            print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
+
+
+def evaluate_agents(env, agent, num_episodes=20, agent_type='dqn'):
+    """Collects rewards and semantic variance to detect filter bubbles[cite: 4, 83]."""
+    metrics = {'rewards': [], 'variances': []}
+    for _ in range(num_episodes):
+        state, info = env.reset(return_info=True)
+        terminal, ep_rewards, trajectory = False, np.zeros(3), [state]
+        while not terminal:
             action_idx = agent.select_action(state, info['candidate_embeddings'])
             state, reward, terminal, info = env.step(action_idx)
-            
             ep_rewards += reward
-            state_trajectory.append(state)
-            
+            trajectory.append(state)
         metrics['rewards'].append(ep_rewards)
-        
-        # Calculate User Embedding Variance across the episode (Trace of Covariance Matrix)
-        # A decreasing/low variance indicates the user is trapped in a Filter Bubble
-        trajectory_matrix = np.array(state_trajectory)
-        cov_matrix = np.cov(trajectory_matrix, rowvar=False)
-        variance = np.trace(cov_matrix)
-        metrics['embedding_variances'].append(variance)
-        
+        metrics['variances'].append(np.trace(np.cov(np.array(trajectory), rowvar=False)))
     return metrics
 
-def plot_filter_bubble(morl_variances, dqn_variances):
-    """Visualizes the Semantic Homogenization (Filter Bubble)."""
-    plt.figure(figsize=(10, 6))
-    plt.plot(morl_variances, label='Pareto-DQN (MORL)', color='blue', linewidth=2)
-    plt.plot(dqn_variances, label='Standard DQN (Engagement Only)', color='red', linestyle='dashed')
+def evaluate_envelope_frontier(env, agent, num_episodes_per_w=5,num_samples=20):
+    """
+    Evaluates the Envelope agent across a spectrum of preferences 
+    to generate a comparable Pareto cloud.
+    """
+    # # Define a grid of preferences to sample the front
+    # eval_weights = [
+    #     [1.0, 0.0, 0.0],  # Pure Engagement
+    #     [0.0, 1.0, 0.0],  # Pure Diversity
+    #     [0.0, 0.0, 1.0],  # Pure Fairness
+    #     [0.5, 0.5, 0.0],  # Eng/Div Balance
+    #     [0.5, 0.0, 0.5],  # Eng/Fair Balance
+    #     [0.33, 0.33, 0.34], # Full Balance
+    # ]
+    # Sample 100 random preferences from Dirichlet distribution
+    eval_weights = agent.sample_preferences(batch_size=num_samples) #
     
-    plt.title('Mitigating the Filter Bubble: User Embedding Variance')
-    plt.xlabel('Evaluation Episode')
-    plt.ylabel('Semantic Variance (Trace of Cov)')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('filter_bubble_analysis.png')
-    plt.show()
+    all_metrics = {'rewards': [], 'variances': []}
+    
+    for w in eval_weights:
+        pref = np.array(w, dtype=np.float32)
+        for _ in range(num_episodes_per_w):
+            state, info = env.reset(return_info=True)
+            terminal, ep_rewards, trajectory = False, np.zeros(3), [state]
+            
+            while not terminal:
+                # Agent reacts specifically to the current 'w'
+                action_idx = agent.select_action(state, info['candidate_embeddings'], pref)
+                state, reward, terminal, info = env.step(action_idx)
+                ep_rewards += reward
+                trajectory.append(state)
+            
+            all_metrics['rewards'].append(ep_rewards)
+            all_metrics['variances'].append(np.trace(np.cov(np.array(trajectory), rowvar=False)))
+            
+    return all_metrics
 
-def plot_price_of_responsibility(morl_rewards, dqn_rewards):
-    """Visualizes the 2D Pareto Front projection (Engagement vs. Diversity)."""
-    morl_eng = [r[0] for r in morl_rewards]
-    morl_div = [r[1] for r in morl_rewards]
-    
-    dqn_eng = [r[0] for r in dqn_rewards]
-    dqn_div = [r[1] for r in dqn_rewards]
-    
-    plt.figure(figsize=(10, 6))
-    plt.scatter(morl_eng, morl_div, color='blue', label='Pareto-DQN Policies', alpha=0.7)
-    plt.scatter(dqn_eng, dqn_div, color='red', marker='X', s=100, label='Standard DQN Policy')
-    
-    # Calculate the Price of Responsibility (Delta Engagement)
-    mean_morl_eng = np.mean(morl_eng)
-    mean_dqn_eng = np.mean(dqn_eng)
-    price = mean_dqn_eng - mean_morl_eng
-    
-    plt.axvline(x=mean_dqn_eng, color='red', linestyle='--', alpha=0.5)
-    plt.axvline(x=mean_morl_eng, color='blue', linestyle='--', alpha=0.5)
-    
-    plt.title(f'The Price of Responsibility (Engagement Drop: {price:.2f})')
-    plt.xlabel('Utility / Engagement ($r_{eng}$)')
-    plt.ylabel('Information Diversity ($r_{div}$)')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('price_of_responsibility.png')
-    plt.show()
 
-def plot_pareto_3d(morl_rewards, dqn_rewards):
-    """Visualizes the full 3D Pareto Front (Engagement vs. Diversity vs. Fairness)."""
-    # Extract objectives for Pareto-DQN
-    morl_eng = [r[0] for r in morl_rewards]
-    morl_div = [r[1] for r in morl_rewards]
-    morl_fair = [r[2] for r in morl_rewards]
-    
-    # Extract objectives for Standard DQN
-    dqn_eng = [r[0] for r in dqn_rewards]
-    dqn_div = [r[1] for r in dqn_rewards]
-    dqn_fair = [r[2] for r in dqn_rewards]
-    
+
+def plot_filter_bubble(dqn_m, pareto_m, env_m):
+    """Compares semantic homogenization across methods[cite: 83]."""
+    plt.figure(figsize=(10, 6))
+    plt.plot(dqn_m['variances'], label='Standard DQN (Bubbled)', color='red', linestyle='--')
+    plt.plot(pareto_m['variances'], label='Pareto-DQN (Many-Obj)', color='blue')
+    plt.plot(env_m['variances'], label='Envelope MOAC (Responsible)', color='green', linewidth=2)
+    plt.title('Mitigating Filter Bubbles: User Embedding Variance')
+    plt.xlabel('Episode'); plt.ylabel('Semantic Variance (Trace of Cov)'); plt.legend(); plt.grid(True)
+    plt.savefig('comparison_filter_bubble.png')
+
+def plot_price_of_responsibility(dqn_m, pareto_m, env_m):
+    """Plots Engagement vs. Diversity trade-off[cite: 84]."""
+    plt.figure(figsize=(10, 6))
+    for m, c, l in zip([dqn_m, pareto_m, env_m], ['red', 'blue', 'green'], ['DQN', 'Pareto', 'Envelope']):
+        r = np.array(m['rewards'])
+        plt.scatter(r[:,0], r[:,1], color=c, label=l, alpha=0.6)
+    plt.title('Price of Responsibility: Engagement vs. Information Diversity')
+    plt.xlabel('User Engagement ($r_{eng}$)'); plt.ylabel('Diversity ($r_{div}$)'); plt.legend(); plt.grid(True)
+    plt.savefig('comparison_price_of_responsibility.png')
+
+def plot_pareto_3d(dqn_m, pareto_m, env_m):
+    """Full 3D perspective of alignment goals[cite: 8, 49]."""
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
-    
-    # Plot Pareto-DQN
-    ax.scatter(morl_eng, morl_div, morl_fair, 
-               color='blue', s=50, label='Pareto-DQN Policies', alpha=0.7)
-    
-    # Plot Standard DQN
-    ax.scatter(dqn_eng, dqn_div, dqn_fair, 
-               color='red', marker='X', s=100, label='Standard DQN Policy', alpha=0.9)
-    
-    # Axes labels
-    ax.set_title('3D Pareto Frontier: Responsible Value Alignment')
-    ax.set_xlabel('Utility / Engagement ($r_{eng}$)')
-    ax.set_ylabel('Information Diversity ($r_{div}$)')
-    ax.set_zlabel('Provider Fairness ($r_{fair}$)')
-    
-    # Adjust viewing angle for best perspective of the knee point
-    ax.view_init(elev=20, azim=45)
-    
-    ax.legend()
-    plt.savefig('pareto_front_3d.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    for m, c, l in zip([dqn_m, pareto_m, env_m], ['red', 'blue', 'green'], ['DQN', 'Pareto', 'Envelope']):
+        r = np.array(m['rewards'])
+        ax.scatter(r[:,0], r[:,1], r[:,2], color=c, label=l, s=50, alpha=0.7)
+    ax.set_xlabel('Engagement'); ax.set_ylabel('Diversity'); ax.set_zlabel('Fairness')
+    ax.set_title('3D Pareto Alignment Comparison'); plt.legend()
+    plt.savefig('comparison_pareto_3d.png')
 
 
 if __name__ == '__main__':
@@ -225,30 +245,48 @@ if __name__ == '__main__':
     handler = MovieLensDataHandler(movies_path, ratings_path, tags_path)
     # env = MovieLensMOEnv(handler, top_k=100, max_steps=50)
     env = MovieLensMOEnv(handler, top_k=100, max_steps=150, drift_rate=0.20, fairness_ratio=0.3)
-    
-    # 2. Train & Evaluate Pareto-DQN (MORL)
+
+    # 2. Envelope MOAC (Proposed)
+    print("\n=======================================")
+    print("     EVALUATING ENVELOPE MOAC AGENT    ")
+    print("=======================================")
+    env_agent = EnvelopeMOACAgent(384, 384, 3)
+    env_buffer = PreferenceAwareBuffer(5000)
+    train_envelope_moac(env, env_agent, env_buffer, episodes=100)
+    moac_metrics = evaluate_envelope_frontier(env, env_agent)
+
+
+    # 3. Train & Evaluate Pareto-DQN (MORL)
     print("\n=======================================")
     print("      EVALUATING PARETO-DQN AGENT      ")
     print("=======================================")
     morl_agent = ParetoAgent(state_dim=384, item_dim=384, num_objectives=3)
     morl_buffer = ItemCentricReplayBuffer(capacity=5000)
-    train_agent(env, morl_agent, morl_buffer, episodes=100)
-    morl_metrics = evaluate_agents(env, morl_agent, num_episodes=30)
+    train_ParetoDQN_agent(env, morl_agent, morl_buffer, episodes=100)
+    pareto_metrics = evaluate_agents(env, morl_agent, num_episodes=100)
     
-    # 3. Train & Evaluate Standard DQN (Baseline)
+    # 4. Train & Evaluate Standard DQN (Baseline)
     print("\n=======================================")
     print("     EVALUATING STANDARD DQN AGENT     ")
     print("=======================================")
     dqn_agent = StandardDQNAgent(state_dim=384, item_dim=384)
     dqn_buffer = ItemCentricReplayBuffer(capacity=5000)
     train_baseline_agent(env, dqn_agent, dqn_buffer, episodes=100)
-    dqn_metrics = evaluate_agents(env, dqn_agent, num_episodes=30)
+    dqn_metrics = evaluate_agents(env, dqn_agent, num_episodes=100)
+
     
-    # 4. Empirical Visualizations
+    # 5. Empirical Visualizations
     # Plot 1: Filter Bubble Analysis (Semantic Homogenization)
-    plot_filter_bubble(morl_metrics['embedding_variances'], dqn_metrics['embedding_variances'])
+    plot_filter_bubble(dqn_metrics, pareto_metrics, moac_metrics)
     # Plot 2: Price of Responsibility (2D Pareto Front Projection)
-    plot_price_of_responsibility(morl_metrics['rewards'], dqn_metrics['rewards'])
+    plot_price_of_responsibility(dqn_metrics, pareto_metrics, moac_metrics)
     # Plot 3: Full 3D Pareto Front (Engagement vs. Diversity vs. Fairness)
-    plot_pareto_3d(morl_metrics['rewards'], dqn_metrics['rewards'])
+    plot_pareto_3d(dqn_metrics, pareto_metrics, moac_metrics)
+
+
+
+
+
+    
+    
 
