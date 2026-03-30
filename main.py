@@ -100,32 +100,68 @@ def train_baseline_agent(env, agent, buffer, episodes=100, batch_size=32):
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
 
-def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
-    """Phase 2: Training the preference-conditioned Envelope MOAC."""
-    print("--- Starting Phase 2: Envelope MOAC Training ---")
+# def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
+#     """Phase 2: Training the preference-conditioned Envelope MOAC."""
+#     print("--- Starting Phase 2: Envelope MOAC Training ---")
     
-    global_step = 0
+#     global_step = 0
+#     for ep in range(episodes):
+#         state, info = env.reset(return_info=True)
+#         # Step 2: Sample a preference w ~ Dirichlet for this episode
+#         pref = agent.sample_preferences(batch_size=1)[0]
+#         terminal = False
+#         ep_rewards = np.zeros(3) # Track rewards for logging
+        
+#         while not terminal:
+#             candidate_embs = info['candidate_embeddings']
+#             # Select action based on state AND current preference
+#             action_idx = agent.select_action(state, candidate_embs, pref)
+#             chosen_item_emb = candidate_embs[action_idx]
+            
+#             # Step Environment
+#             next_state, reward, terminal, next_info = env.step(action_idx)
+            
+#             # Store in PreferenceAwareBuffer
+#             buffer.push(state, chosen_item_emb, reward, next_state, 
+#                         next_info['candidate_embeddings'], terminal, pref)
+            
+#             # Network Optimization (Experience Replay)
+#             if len(buffer) > batch_size:
+#                 b_s, b_a, b_r, b_ns, b_nc, b_t, b_w = buffer.sample(batch_size)
+                
+#                 # Fix: Cast terminals to float32 to avoid boolean subtraction error
+#                 agent.update(
+#                     torch.tensor(b_s, dtype=torch.float32).to(agent.device),
+#                     torch.tensor(b_a, dtype=torch.float32).to(agent.device),
+#                     torch.tensor(b_r, dtype=torch.float32).to(agent.device),
+#                     torch.tensor(b_ns, dtype=torch.float32).to(agent.device),
+#                     torch.tensor(b_t, dtype=torch.float32).to(agent.device),
+#                     torch.tensor(b_w, dtype=torch.float32).to(agent.device)
+#                 )
+            
+#             state = next_state
+#             info = next_info
+#             ep_rewards += reward # Accumulate rewards
+#             global_step += 1
+            
+#         # Logging every 10 episodes to match baseline style
+#         if (ep + 1) % 10 == 0:
+#             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
+
+
+def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
+    print("--- Starting Phase 2: Stochastic Envelope MOAC Training ---")
     for ep in range(episodes):
         state, info = env.reset(return_info=True)
-        # Step 2: Sample a preference w ~ Dirichlet for this episode
         pref = agent.sample_preferences(batch_size=1)[0]
         terminal = False
-        ep_rewards = np.zeros(3) # Track rewards for logging
-        
+        ep_rewards = np.zeros(3)
         while not terminal:
-            candidate_embs = info['candidate_embeddings']
-            # Select action based on state AND current preference
-            action_idx = agent.select_action(state, candidate_embs, pref)
-            chosen_item_emb = candidate_embs[action_idx]
-            
-            # Step Environment
+            # Training uses stochastic actions (deterministic=False)
+            action_idx = agent.select_action(state, info['candidate_embeddings'], pref, deterministic=False)
             next_state, reward, terminal, next_info = env.step(action_idx)
-            
-            # Store in PreferenceAwareBuffer
-            buffer.push(state, chosen_item_emb, reward, next_state, 
-                        next_info['candidate_embeddings'], terminal, pref)
-            
-            # Network Optimization (Experience Replay)
+            buffer.push(state, info['candidate_embeddings'][action_idx], reward, 
+                        next_state, next_info['candidate_embeddings'], terminal, pref)
             if len(buffer) > batch_size:
                 b_s, b_a, b_r, b_ns, b_nc, b_t, b_w = buffer.sample(batch_size)
                 
@@ -138,13 +174,7 @@ def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
                     torch.tensor(b_t, dtype=torch.float32).to(agent.device),
                     torch.tensor(b_w, dtype=torch.float32).to(agent.device)
                 )
-            
-            state = next_state
-            info = next_info
-            ep_rewards += reward # Accumulate rewards
-            global_step += 1
-            
-        # Logging every 10 episodes to match baseline style
+            state, info, ep_rewards = next_state, next_info, ep_rewards + reward
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
 
@@ -164,42 +194,62 @@ def evaluate_agents(env, agent, num_episodes=20, agent_type='dqn'):
         metrics['variances'].append(np.trace(np.cov(np.array(trajectory), rowvar=False)))
     return metrics
 
+
+
+
+# def evaluate_envelope_frontier(env, agent, num_episodes_per_w=5,num_samples=20):
+#     """
+#     Evaluates the Envelope agent across a spectrum of preferences 
+#     to generate a comparable Pareto cloud.
+#     """
+#     # # Define a grid of preferences to sample the front
+#     # eval_weights = [
+#     #     [1.0, 0.0, 0.0],  # Pure Engagement
+#     #     [0.0, 1.0, 0.0],  # Pure Diversity
+#     #     [0.0, 0.0, 1.0],  # Pure Fairness
+#     #     [0.5, 0.5, 0.0],  # Eng/Div Balance
+#     #     [0.5, 0.0, 0.5],  # Eng/Fair Balance
+#     #     [0.33, 0.33, 0.34], # Full Balance
+#     # ]
+#     # Sample 100 random preferences from Dirichlet distribution
+#     eval_weights = agent.sample_preferences(batch_size=num_samples) #
+    
+#     all_metrics = {'rewards': [], 'variances': []}
+    
+#     for w in eval_weights:
+#         pref = np.array(w, dtype=np.float32)
+#         for _ in range(num_episodes_per_w):
+#             state, info = env.reset(return_info=True)
+#             terminal, ep_rewards, trajectory = False, np.zeros(3), [state]
+            
+#             while not terminal:
+#                 # Agent reacts specifically to the current 'w'
+#                 action_idx = agent.select_action(state, info['candidate_embeddings'], pref)
+#                 state, reward, terminal, info = env.step(action_idx)
+#                 ep_rewards += reward
+#                 trajectory.append(state)
+            
+#             all_metrics['rewards'].append(ep_rewards)
+#             all_metrics['variances'].append(np.trace(np.cov(np.array(trajectory), rowvar=False)))
+            
+#     return all_metrics
+
 def evaluate_envelope_frontier(env, agent, num_episodes_per_w=5,num_samples=20):
-    """
-    Evaluates the Envelope agent across a spectrum of preferences 
-    to generate a comparable Pareto cloud.
-    """
-    # # Define a grid of preferences to sample the front
-    # eval_weights = [
-    #     [1.0, 0.0, 0.0],  # Pure Engagement
-    #     [0.0, 1.0, 0.0],  # Pure Diversity
-    #     [0.0, 0.0, 1.0],  # Pure Fairness
-    #     [0.5, 0.5, 0.0],  # Eng/Div Balance
-    #     [0.5, 0.0, 0.5],  # Eng/Fair Balance
-    #     [0.33, 0.33, 0.34], # Full Balance
-    # ]
-    # Sample 100 random preferences from Dirichlet distribution
-    eval_weights = agent.sample_preferences(batch_size=num_samples) #
-    
-    all_metrics = {'rewards': [], 'variances': []}
-    
+    """Dense random sampling for a continuous Pareto surface."""
+    metrics = {'rewards': [], 'variances': []}
+    eval_weights = agent.sample_preferences(batch_size=num_samples)
     for w in eval_weights:
-        pref = np.array(w, dtype=np.float32)
+        state, info = env.reset(return_info=True)
         for _ in range(num_episodes_per_w):
-            state, info = env.reset(return_info=True)
-            terminal, ep_rewards, trajectory = False, np.zeros(3), [state]
-            
+            terminal, ep_rewards, traj = False, np.zeros(3), [state]
             while not terminal:
-                # Agent reacts specifically to the current 'w'
-                action_idx = agent.select_action(state, info['candidate_embeddings'], pref)
+                # Evaluation uses deterministic means
+                action_idx = agent.select_action(state, info['candidate_embeddings'], w, deterministic=True)
                 state, reward, terminal, info = env.step(action_idx)
-                ep_rewards += reward
-                trajectory.append(state)
-            
-            all_metrics['rewards'].append(ep_rewards)
-            all_metrics['variances'].append(np.trace(np.cov(np.array(trajectory), rowvar=False)))
-            
-    return all_metrics
+                ep_rewards, traj = ep_rewards + reward, traj + [state]
+            metrics['rewards'].append(ep_rewards)
+            metrics['variances'].append(np.trace(np.cov(np.array(traj), rowvar=False)))
+    return metrics
 
 
 
