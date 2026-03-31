@@ -163,7 +163,7 @@ $$w^* = \arg\max_{w' \in \mathcal{W}} (w \cdot \mathbf{Q}(s', \pi(s', w'), w'))$
 * **$w^*$**: The preference that maximizes scalarized utility relative to the agent's current objective $w$.
 
 #### III. Stochastic Policy and Entropy Regularization
-To prevent policy collapse and maintain high semantic variance, the Actor implements a stochastic policy $\pi_\theta(a|s, w)$[cite: 12]. [cite_start]The Actor maximizes a combination of scalarized utility and policy entropy:
+To prevent policy collapse and maintain high semantic variance, the Actor implements a stochastic policy $\pi_\theta(a|s, w)$. The Actor maximizes a combination of scalarized utility and policy entropy:
 
 $$J(\theta) = \mathbb{E} [ w \cdot \mathbf{Q}(s, a, w) - \alpha \log \pi_\theta(a|s, w) ]$$.
 
