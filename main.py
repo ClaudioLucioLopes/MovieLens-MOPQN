@@ -234,24 +234,39 @@ def evaluate_agents(env, agent, num_episodes=20, agent_type='dqn'):
             
 #     return all_metrics
 
-def evaluate_envelope_frontier(env, agent, num_episodes_per_w=5,num_samples=20):
+# def evaluate_envelope_frontier(env, agent, num_episodes_per_w=5,num_samples=20):
+#     """Dense random sampling for a continuous Pareto surface."""
+#     metrics = {'rewards': [], 'variances': []}
+#     eval_weights = agent.sample_preferences(batch_size=num_samples)
+#     for w in eval_weights:
+#         state, info = env.reset(return_info=True)
+#         for _ in range(num_episodes_per_w):
+#             terminal, ep_rewards, traj = False, np.zeros(3), [state]
+#             while not terminal:
+#                 # Evaluation uses deterministic means
+#                 action_idx = agent.select_action(state, info['candidate_embeddings'], w, deterministic=True)
+#                 state, reward, terminal, info = env.step(action_idx)
+#                 ep_rewards, traj = ep_rewards + reward, traj + [state]
+#             metrics['rewards'].append(ep_rewards)
+#             metrics['variances'].append(np.trace(np.cov(np.array(traj), rowvar=False)))
+#     return metrics
+
+
+def evaluate_envelope_frontier(env, agent, num_samples=100):
     """Dense random sampling for a continuous Pareto surface."""
     metrics = {'rewards': [], 'variances': []}
     eval_weights = agent.sample_preferences(batch_size=num_samples)
     for w in eval_weights:
         state, info = env.reset(return_info=True)
-        for _ in range(num_episodes_per_w):
-            terminal, ep_rewards, traj = False, np.zeros(3), [state]
-            while not terminal:
-                # Evaluation uses deterministic means
-                action_idx = agent.select_action(state, info['candidate_embeddings'], w, deterministic=True)
-                state, reward, terminal, info = env.step(action_idx)
-                ep_rewards, traj = ep_rewards + reward, traj + [state]
-            metrics['rewards'].append(ep_rewards)
-            metrics['variances'].append(np.trace(np.cov(np.array(traj), rowvar=False)))
+        terminal, ep_rewards, traj = False, np.zeros(3), [state]
+        while not terminal:
+            # Evaluation uses deterministic means
+            action_idx = agent.select_action(state, info['candidate_embeddings'], w, deterministic=True)
+            state, reward, terminal, info = env.step(action_idx)
+            ep_rewards, traj = ep_rewards + reward, traj + [state]
+        metrics['rewards'].append(ep_rewards)
+        metrics['variances'].append(np.trace(np.cov(np.array(traj), rowvar=False)))
     return metrics
-
-
 
 def plot_filter_bubble(dqn_m, pareto_m, env_m):
     """Compares semantic homogenization across methods[cite: 83]."""
@@ -303,7 +318,7 @@ if __name__ == '__main__':
     env_agent = EnvelopeMOACAgent(384, 384, 3)
     env_buffer = PreferenceAwareBuffer(5000)
     train_envelope_moac(env, env_agent, env_buffer, episodes=100)
-    moac_metrics = evaluate_envelope_frontier(env, env_agent)
+    moac_metrics = evaluate_envelope_frontier(env, env_agent, num_samples=100)
 
 
     # 3. Train & Evaluate Pareto-DQN (MORL)
