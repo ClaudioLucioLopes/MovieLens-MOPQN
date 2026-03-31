@@ -152,9 +152,9 @@ $$\mathbf{Q}(s, a, w) = \mathbb{E} \left[ \sum_{t=0}^{\infty} \gamma^t \mathbf{r
 * **$\mathbf{Q}(s, a, w)$**: The predicted returns for Engagement, Diversity, and Fairness simultaneously.
 
 #### II. The Envelope Bellman Equation
-The Critic is optimized using the **Envelope Bellman Operator**, which identifies the maximum utility across the learned frontier for the next state $s'$:
+The Critic is optimized using the **Envelope Bellman Operator**, which identifies the maximum utility across the learned frontier for the next state s':
 
-$$\mathbf{Q}(s, a, w) \leftarrow \mathbf{r} + \gamma \mathbf{Q}(s', \pi(s', w^*), w^*)$$
+$$\mathbf{Q}(s, a, w) \leftarrow \mathbf{r} + \gamma \mathbf{Q}(s', \pi(s', w^{*}), w^{*})$$
 
 $$w^* = \arg\max_{w' \in \mathcal{W}} (w \cdot \mathbf{Q}(s', \pi(s', w'), w'))$$
 
