@@ -39,8 +39,8 @@ def compute_mean_metrics(metrics_list):
 def train_ParetoDQN_agent(env, agent, buffer, episodes=100, batch_size=32):
     """Phase 2: Training via Experience Replay."""
     print("--- Starting Phase 2: Pareto-DQN Training ---")
-    
     global_step = 0
+    history = []  # Tracking episodic returns
     
     for ep in range(episodes):
         state, info = env.reset(return_info=True)
@@ -49,37 +49,21 @@ def train_ParetoDQN_agent(env, agent, buffer, episodes=100, batch_size=32):
         
         while not terminal:
             candidate_embs = info['candidate_embeddings']
-            
-            # 1. Action Selection via Hypervolume maximization
             action_idx = agent.select_action(state, candidate_embs)
             chosen_item_emb = candidate_embs[action_idx]
             
-            # 2. Step Environment
             next_state, reward, terminal, next_info = env.step(action_idx)
             next_candidate_embs = next_info['candidate_embeddings']
             
-            # 3. Store in Buffer
             buffer.push(state, chosen_item_emb, reward, next_state, next_candidate_embs, terminal)
             
-            # 4. Network Optimization (Experience Replay)
             if len(buffer) > batch_size:
                 b_s, b_a_emb, b_r, b_ns, b_n_cands, b_t = buffer.sample(batch_size)
                 
-                # --- Update Reward Approximator ---
-                # Minimize MSE between predicted 3D reward and actual 3D reward
+                # Network Optimization
                 r_loss = agent.rew_estim.update(b_r, b_s, b_a_emb, step=global_step)
-                
-                # --- Update Non-Dominated Approximator ---
-                # Sample objective weights and update the Pareto surface estimators
                 points = agent.sample_objective_points(n_samples=1)
-                
-                # Compute Target Non-Dominated Set from next state
-                # For simplicity in this loop, we approximate the target by taking the max hypervolume 
-                # candidate from the next state using the target network.
-                with torch.no_grad():
-                    # We evaluate all K next candidates to find the best future Pareto return
-                    # This maps to the Tchebycheff scalarization step.
-                    pass # (Implementation detail abstracted for brevity; target updates are handled inside ParetoAgent)
+                pass # Target ND set updates
                 
             state = next_state
             info = next_info
@@ -87,13 +71,18 @@ def train_ParetoDQN_agent(env, agent, buffer, episodes=100, batch_size=32):
             global_step += 1
             
         agent.epsilon_step()
+        history.append(ep_rewards) # Append objective return vector
+        
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
+            
+    return np.array(history)
 
 def train_baseline_agent(env, agent, buffer, episodes=100, batch_size=32):
     """Phase 2: Training the Single-Objective Baseline."""
     print("--- Starting Phase 2: Standard DQN Training ---")
     global_step = 0
+    history = []
     
     for ep in range(episodes):
         state, info = env.reset(return_info=True)
@@ -123,22 +112,37 @@ def train_baseline_agent(env, agent, buffer, episodes=100, batch_size=32):
             global_step += 1
             
         agent.epsilon_step()
+        history.append(ep_rewards)
+        
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
+            
+    return np.array(history)
 
-def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
-    print("--- Starting Phase 2: Stochastic Envelope MOAC Training ---")
+def train_moac_agent(env, agent, buffer, episodes=100, batch_size=32):
+    """Phase 2: Training Envelope MOAC."""
+    print("--- Starting Phase 2: Envelope MOAC Training ---")
+    global_step = 0
+    history = []
+    
     for ep in range(episodes):
         state, info = env.reset(return_info=True)
-        pref = agent.sample_preferences(batch_size=1)[0]
         terminal = False
         ep_rewards = np.zeros(3)
+        
+        # Sample a preference vector w ~ Dirichlet distribution for this episode
+        w = np.random.dirichlet(np.ones(3)) 
+        
         while not terminal:
-            # Training uses stochastic actions (deterministic=False)
-            action_idx = agent.select_action(state, info['candidate_embeddings'], pref, deterministic=False)
+            candidate_embs = info['candidate_embeddings']
+            action_idx = agent.select_action(state, candidate_embs, w)
+            chosen_item_emb = candidate_embs[action_idx]
+            
             next_state, reward, terminal, next_info = env.step(action_idx)
-            buffer.push(state, info['candidate_embeddings'][action_idx], reward, 
-                        next_state, next_info['candidate_embeddings'], terminal, pref)
+            next_candidate_embs = next_info['candidate_embeddings']
+            
+            buffer.push(state, chosen_item_emb, reward, next_state, next_candidate_embs, terminal, w)
+            
             if len(buffer) > batch_size:
                 b_s, b_a, b_r, b_ns, b_nc, b_t, b_w = buffer.sample(batch_size)
                 
@@ -151,9 +155,17 @@ def train_envelope_moac(env, agent, buffer, episodes=100, batch_size=32):
                     torch.tensor(b_t, dtype=torch.float32).to(agent.device),
                     torch.tensor(b_w, dtype=torch.float32).to(agent.device)
                 )
-            state, info, ep_rewards = next_state, next_info, ep_rewards + reward
+                
+            state = next_state
+            info = next_info
+            ep_rewards += reward
+            global_step += 1
+            
+        history.append(ep_rewards)
         if (ep + 1) % 10 == 0:
             print(f"Episode {ep+1} | Mean Rewards: Eng={ep_rewards[0]:.2f}, Div={ep_rewards[1]:.2f}, Fair={ep_rewards[2]:.2f}")
+            
+    return np.array(history)
 
 
 def evaluate_agents(env, agent, test_users, pref_weight=None):
@@ -278,6 +290,48 @@ def evaluate_envelope_frontier(env, moac_agent, weights_list, test_users):
             variance = np.trace(cov_matrix)
             frontier_metrics[w_tuple]['embedding_variances'].append(variance)
     return frontier_metrics
+
+def plot_learning_curves(dqn_hist, pareto_hist, moac_hist=None, window=10):
+    """
+    Plots the moving average of the episodic returns for each distinct objective 
+    to verify policy convergence across the multidimensional reward manifold.
+    Expects histories of shape (episodes, 3) representing the mean objective returns.
+    """
+    def moving_average(data, w):
+        return np.convolve(data, np.ones(w), 'valid') / w
+        
+    # Initialize a 1x3 grid for the 3 distinct objectives
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
+    objective_names = ['Engagement ($r_{eng}$)', 'Diversity ($r_{div}$)', 'Fairness ($r_{fair}$)']
+    colors = {'DQN': 'red', 'Pareto': 'blue', 'MOAC': 'green'}
+    line_styles = {'DQN': '--', 'Pareto': '-', 'MOAC': '-.'}
+    
+    for i, obj_name in enumerate(objective_names):
+        ax = axes[i]
+        
+        # Isolate the specific objective column and apply the Simple Moving Average (SMA)
+        dqn_obj = moving_average(dqn_hist[:, i], window)
+        pareto_obj = moving_average(pareto_hist[:, i], window)
+        
+        # Plot single-objective vs multi-objective trajectories
+        ax.plot(dqn_obj, label='Standard DQN', color=colors['DQN'], linestyle=line_styles['DQN'])
+        ax.plot(pareto_obj, label='Pareto-DQN', color=colors['Pareto'], linestyle=line_styles['Pareto'])
+        
+        if moac_hist is not None:
+            moac_obj = moving_average(moac_hist[:, i], window)
+            ax.plot(moac_obj, label='Envelope MOAC', color=colors['MOAC'], linestyle=line_styles['MOAC'])
+            
+        ax.set_title(f'{obj_name} Convergence')
+        ax.set_xlabel('Episode (Smoothed)')
+        ax.set_ylabel('Episodic Return')
+        ax.legend()
+        ax.grid(True)
+        
+    plt.suptitle(f'Policy Convergence by Objective (Moving Average Window = {window})', fontsize=16)
+    plt.tight_layout()
+    plt.savefig('learning_curves_convergence.svg', format='svg')
+    plt.show()
 
 def plot_filter_bubble(dqn_m, pareto_m, moac_eng_m, moac_bal_m):
     """Compares semantic homogenization across methods and preference weights."""
@@ -423,12 +477,19 @@ if __name__ == '__main__':
 
     # 2. Define the Evaluation Scope
     seeds = [42, 123, 456, 789, 999]
+    # seeds = [42]
     
     # Metric Accumulators
     seed_dqn_metrics = []
     seed_pareto_metrics = []
     seed_moac_eng_metrics = []
     seed_moac_bal_metrics = []
+
+
+    # Accumulators for Phase 2 Training Curves
+    seed_dqn_train_hist = []
+    seed_pareto_train_hist = []
+    seed_moac_train_hist = []
 
     for seed in seeds:
         print(f"\n=======================================")
@@ -448,7 +509,8 @@ if __name__ == '__main__':
         print("=======================================")
         moac_agent = EnvelopeMOACAgent(384, 384, 3)
         env_buffer = PreferenceAwareBuffer(5000)
-        train_envelope_moac(train_env, moac_agent, env_buffer, episodes=100)
+        moac_hist = train_moac_agent(train_env, moac_agent, env_buffer, episodes=100)
+        seed_moac_train_hist.append(moac_hist)
         #Define Preference Vectors for MOAC Evaluation
         # w_eng: Should theoretically collapse variance (Filter Bubble) like the DQN
         # w_bal: Should maintain variance, tracking near the Pareto-DQN performance
@@ -477,7 +539,8 @@ if __name__ == '__main__':
         print("=======================================")
         morl_agent = ParetoAgent(state_dim=384, item_dim=384, num_objectives=3)
         morl_buffer = ItemCentricReplayBuffer(capacity=5000)
-        train_ParetoDQN_agent(train_env, morl_agent, morl_buffer, episodes=100)
+        pareto_hist = train_ParetoDQN_agent(train_env, morl_agent, morl_buffer, episodes=100)
+        seed_pareto_train_hist.append(pareto_hist)
         pareto_metrics = evaluate_agents(eval_env, morl_agent, fixed_test_users)
         seed_pareto_metrics.append(pareto_metrics)
     
@@ -487,7 +550,8 @@ if __name__ == '__main__':
         print("=======================================")
         dqn_agent = StandardDQNAgent(state_dim=384, item_dim=384)
         dqn_buffer = ItemCentricReplayBuffer(capacity=5000)
-        train_baseline_agent(train_env, dqn_agent, dqn_buffer, episodes=100)
+        dqn_hist = train_baseline_agent(train_env, dqn_agent, dqn_buffer, episodes=100)
+        seed_dqn_train_hist.append(dqn_hist)
         dqn_metrics = evaluate_agents(eval_env, dqn_agent, fixed_test_users)
         seed_dqn_metrics.append(dqn_metrics)
 
@@ -502,6 +566,11 @@ if __name__ == '__main__':
     final_moac_eng_metrics = compute_mean_metrics(seed_moac_eng_metrics)
     final_moac_bal_metrics = compute_mean_metrics(seed_moac_bal_metrics)
 
+    # Aggregate Training Histories across seeds (Compute expected trajectory)
+    # Shape becomes (episodes, num_objectives)
+    final_dqn_train_hist = np.mean(seed_dqn_train_hist, axis=0)
+    final_pareto_train_hist = np.mean(seed_pareto_train_hist, axis=0)
+    final_moac_train_hist = np.mean(seed_moac_train_hist, axis=0)
     
     # 6. Empirical Visualizations
     # Plot 1: Filter Bubble Analysis (Semantic Homogenization)
@@ -519,6 +588,10 @@ if __name__ == '__main__':
     # Plot 6: Full 3D Pareto Front (Engagement vs. Diversity vs. Fairness)
     plot_pareto_3d_2(final_dqn_metrics, final_pareto_metrics)
 
+
+    # 7. Plot Convergence
+    plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist, final_moac_train_hist, window=10)
+    plot_learning_curves_2(final_dqn_train_hist, final_pareto_train_hist,window=10)
 
 
 
