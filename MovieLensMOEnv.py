@@ -15,17 +15,23 @@ class MovieLensMOEnv(gym.Env):
     
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, data_handler, top_k=100, max_steps=50, drift_rate=0.05, fairness_ratio=0.3):
+    def __init__(self, data_handler, user_ids=None, top_k=100, max_steps=50, drift_rate=0.05, fairness_ratio=0.3):
         super(MovieLensMOEnv, self).__init__()
-        
+
         self.handler = data_handler
         self.top_k = top_k
         self.max_steps = max_steps
         self.drift_rate = drift_rate
         self.fairness_ratio = fairness_ratio
         
+        # Define allowed users for this specific environment instance (Train vs Eval)
+        if user_ids is not None:
+            self.allowed_user_ids = user_ids
+        else:
+            self.allowed_user_ids = list(self.handler.user_centroids.keys())
+            
         self.current_step = 0
-        
+                
         # 1. Action Space: Strictly bounded to Top-K (e.g., 100)
         self.action_space = Discrete(self.top_k)
         
@@ -48,14 +54,21 @@ class MovieLensMOEnv(gym.Env):
         self.user_history_centroid = None
         self.current_candidates = [] 
 
-    def reset(self, seed=None, return_info=False, **kwargs):
-        """Resets the environment by sampling a new empirical user."""
+    
+    
+    # Update signature to accept user_id
+    def reset(self, seed=None, return_info=False, user_id=None, **kwargs):
+        """Resets the environment by sampling a new empirical user or using a fixed user."""
         self.current_step = 0
         
-        # 1. Sample User
-        user_ids = list(self.handler.user_centroids.keys())
-        self.current_user_id = np.random.choice(user_ids)
-        
+        # 1. Deterministic User Selection or Restricted Stochastic Sampling
+        if user_id is not None:
+            # For strict paired evaluation (Phase 3)
+            self.current_user_id = user_id
+        else:
+            # For stochastic training episodes (Phase 2), sample strictly from allowed subset
+            self.current_user_id = np.random.choice(self.allowed_user_ids)
+            
         # 2. Initialize continuous state (v_H)
         self.user_history_centroid = np.copy(self.handler.user_centroids[self.current_user_id])
         
