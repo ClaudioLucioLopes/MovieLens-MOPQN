@@ -591,7 +591,7 @@ if __name__ == '__main__':
 
     # 7. Plot Convergence
     plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist, final_moac_train_hist, window=10)
-    plot_learning_curves_2(final_dqn_train_hist, final_pareto_train_hist,window=10)
+    plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist,window=10)
 
 
 
