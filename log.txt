@@ -1,0 +1,310 @@
+oading Sentence Transformer model: all-MiniLM-L6-v2 (forcing CPU)...
+Loading weights: 100%|███████████████████████| 103/103 [00:00<00:00, 539.51it/s]
+BertModel LOAD REPORT from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Aggregating metadata into semantic documents...
+Encoding documents into dense semantic vectors...
+Batches: 100%|████████████████████████████████| 305/305 [00:15<00:00, 20.00it/s]
+Building Semantic KNN Index...
+Computing User Semantic Centroids...
+
+=======================================
+      DATASET SPLIT (ZERO-SHOT)        
+=======================================
+Total Users: 609 | Training Set: 548 | Test Set: 61
+
+=======================================
+       EXECUTING PIPELINE FOR SEED 42       
+=======================================
+
+=======================================
+     EVALUATING ENVELOPE MOAC AGENT    
+=======================================
+--- Starting Phase 2: Envelope MOAC Training ---
+Episode 10 | Mean Rewards: Eng=107.99, Div=8.15, Fair=50.79
+Episode 20 | Mean Rewards: Eng=109.15, Div=2.45, Fair=43.63
+Episode 30 | Mean Rewards: Eng=108.75, Div=4.30, Fair=30.74
+Episode 40 | Mean Rewards: Eng=107.99, Div=7.93, Fair=39.16
+Episode 50 | Mean Rewards: Eng=108.52, Div=5.48, Fair=59.85
+Episode 60 | Mean Rewards: Eng=108.36, Div=6.24, Fair=43.29
+Episode 70 | Mean Rewards: Eng=107.76, Div=9.08, Fair=52.98
+Episode 80 | Mean Rewards: Eng=108.81, Div=4.01, Fair=31.95
+Episode 90 | Mean Rewards: Eng=108.49, Div=5.61, Fair=31.45
+Episode 100 | Mean Rewards: Eng=108.79, Div=4.19, Fair=37.86
+
+--- Evaluating Envelope MOAC Frontier ---
+Evaluating preference vector: w = (np.float32(1.0), np.float32(0.0), np.float32(0.0))
+Evaluating preference vector: w = (np.float32(0.33), np.float32(0.33), np.float32(0.34))
+
+=======================================
+      EVALUATING PARETO-DQN AGENT      
+=======================================
+--- Starting Phase 2: Pareto-DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.77, Div=51.02, Fair=176.78
+Episode 20 | Mean Rewards: Eng=97.97, Div=54.60, Fair=165.80
+Episode 30 | Mean Rewards: Eng=100.04, Div=45.34, Fair=111.23
+Episode 40 | Mean Rewards: Eng=98.01, Div=54.35, Fair=134.84
+Episode 50 | Mean Rewards: Eng=98.52, Div=51.99, Fair=121.20
+Episode 60 | Mean Rewards: Eng=98.70, Div=51.48, Fair=131.57
+Episode 70 | Mean Rewards: Eng=97.52, Div=56.65, Fair=159.10
+Episode 80 | Mean Rewards: Eng=98.19, Div=53.44, Fair=110.22
+Episode 90 | Mean Rewards: Eng=98.10, Div=53.80, Fair=109.72
+Episode 100 | Mean Rewards: Eng=98.78, Div=51.06, Fair=117.10
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+     EVALUATING STANDARD DQN AGENT     
+=======================================
+--- Starting Phase 2: Standard DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.91, Div=50.53, Fair=119.33
+Episode 20 | Mean Rewards: Eng=100.27, Div=44.34, Fair=95.12
+Episode 30 | Mean Rewards: Eng=99.31, Div=48.63, Fair=120.66
+Episode 40 | Mean Rewards: Eng=100.10, Div=45.03, Fair=100.92
+Episode 50 | Mean Rewards: Eng=99.06, Div=49.76, Fair=109.38
+Episode 60 | Mean Rewards: Eng=98.40, Div=52.73, Fair=113.61
+Episode 70 | Mean Rewards: Eng=99.58, Div=47.45, Fair=75.80
+Episode 80 | Mean Rewards: Eng=99.20, Div=48.93, Fair=65.73
+Episode 90 | Mean Rewards: Eng=99.00, Div=49.83, Fair=77.20
+Episode 100 | Mean Rewards: Eng=99.47, Div=47.71, Fair=65.01
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+       EXECUTING PIPELINE FOR SEED 123       
+=======================================
+
+=======================================
+     EVALUATING ENVELOPE MOAC AGENT    
+=======================================
+--- Starting Phase 2: Envelope MOAC Training ---
+Episode 10 | Mean Rewards: Eng=109.24, Div=2.02, Fair=29.71
+Episode 20 | Mean Rewards: Eng=108.56, Div=5.27, Fair=38.29
+Episode 30 | Mean Rewards: Eng=109.00, Div=3.20, Fair=30.34
+Episode 40 | Mean Rewards: Eng=108.68, Div=4.77, Fair=43.08
+Episode 50 | Mean Rewards: Eng=108.88, Div=3.75, Fair=34.87
+Episode 60 | Mean Rewards: Eng=108.73, Div=4.46, Fair=33.78
+Episode 70 | Mean Rewards: Eng=108.95, Div=3.44, Fair=29.80
+Episode 80 | Mean Rewards: Eng=108.97, Div=3.32, Fair=41.96
+Episode 90 | Mean Rewards: Eng=108.61, Div=5.01, Fair=46.63
+Episode 100 | Mean Rewards: Eng=108.64, Div=4.91, Fair=35.99
+
+--- Evaluating Envelope MOAC Frontier ---
+Evaluating preference vector: w = (np.float32(1.0), np.float32(0.0), np.float32(0.0))
+Evaluating preference vector: w = (np.float32(0.33), np.float32(0.33), np.float32(0.34))
+
+=======================================
+      EVALUATING PARETO-DQN AGENT      
+=======================================
+--- Starting Phase 2: Pareto-DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.38, Div=52.82, Fair=175.41
+Episode 20 | Mean Rewards: Eng=98.49, Div=52.29, Fair=190.94
+Episode 30 | Mean Rewards: Eng=97.94, Div=54.66, Fair=146.50
+Episode 40 | Mean Rewards: Eng=98.38, Div=52.70, Fair=124.40
+Episode 50 | Mean Rewards: Eng=97.54, Div=56.37, Fair=130.33
+Episode 60 | Mean Rewards: Eng=99.29, Div=48.94, Fair=144.97
+Episode 70 | Mean Rewards: Eng=99.08, Div=49.62, Fair=115.39
+Episode 80 | Mean Rewards: Eng=98.28, Div=53.02, Fair=110.27
+Episode 90 | Mean Rewards: Eng=97.76, Div=55.44, Fair=119.26
+Episode 100 | Mean Rewards: Eng=98.35, Div=52.92, Fair=117.98
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+     EVALUATING STANDARD DQN AGENT     
+=======================================
+--- Starting Phase 2: Standard DQN Training ---
+Episode 10 | Mean Rewards: Eng=99.14, Div=49.55, Fair=138.76
+Episode 20 | Mean Rewards: Eng=99.56, Div=47.46, Fair=96.04
+Episode 30 | Mean Rewards: Eng=99.26, Div=48.94, Fair=108.39
+Episode 40 | Mean Rewards: Eng=98.78, Div=50.94, Fair=116.66
+Episode 50 | Mean Rewards: Eng=98.53, Div=52.22, Fair=113.38
+Episode 60 | Mean Rewards: Eng=97.76, Div=55.50, Fair=118.93
+Episode 70 | Mean Rewards: Eng=98.63, Div=51.87, Fair=93.72
+Episode 80 | Mean Rewards: Eng=98.10, Div=53.95, Fair=83.54
+Episode 90 | Mean Rewards: Eng=98.72, Div=51.10, Fair=79.08
+Episode 100 | Mean Rewards: Eng=97.76, Div=55.32, Fair=76.17
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+       EXECUTING PIPELINE FOR SEED 456       
+=======================================
+
+=======================================
+     EVALUATING ENVELOPE MOAC AGENT    
+=======================================
+--- Starting Phase 2: Envelope MOAC Training ---
+Episode 10 | Mean Rewards: Eng=108.81, Div=4.13, Fair=38.51
+Episode 20 | Mean Rewards: Eng=109.33, Div=1.59, Fair=29.62
+Episode 30 | Mean Rewards: Eng=109.20, Div=2.25, Fair=43.10
+Episode 40 | Mean Rewards: Eng=109.04, Div=2.97, Fair=42.43
+Episode 50 | Mean Rewards: Eng=109.30, Div=1.75, Fair=31.10
+Episode 60 | Mean Rewards: Eng=109.27, Div=1.87, Fair=40.79
+Episode 70 | Mean Rewards: Eng=109.42, Div=1.18, Fair=26.19
+Episode 80 | Mean Rewards: Eng=109.32, Div=1.66, Fair=25.32
+Episode 90 | Mean Rewards: Eng=108.34, Div=6.31, Fair=36.84
+Episode 100 | Mean Rewards: Eng=108.98, Div=3.26, Fair=33.00
+
+--- Evaluating Envelope MOAC Frontier ---
+Evaluating preference vector: w = (np.float32(1.0), np.float32(0.0), np.float32(0.0))
+Evaluating preference vector: w = (np.float32(0.33), np.float32(0.33), np.float32(0.34))
+
+=======================================
+      EVALUATING PARETO-DQN AGENT      
+=======================================
+--- Starting Phase 2: Pareto-DQN Training ---
+Episode 10 | Mean Rewards: Eng=99.03, Div=50.05, Fair=140.35
+Episode 20 | Mean Rewards: Eng=97.83, Div=55.22, Fair=177.31
+Episode 30 | Mean Rewards: Eng=99.98, Div=45.57, Fair=145.66
+Episode 40 | Mean Rewards: Eng=98.22, Div=53.40, Fair=139.77
+Episode 50 | Mean Rewards: Eng=98.97, Div=50.07, Fair=120.36
+Episode 60 | Mean Rewards: Eng=98.55, Div=51.96, Fair=124.45
+Episode 70 | Mean Rewards: Eng=98.18, Div=53.61, Fair=125.92
+Episode 80 | Mean Rewards: Eng=97.80, Div=55.12, Fair=113.11
+Episode 90 | Mean Rewards: Eng=98.03, Div=54.16, Fair=114.58
+Episode 100 | Mean Rewards: Eng=98.22, Div=53.48, Fair=113.16
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+     EVALUATING STANDARD DQN AGENT     
+=======================================
+--- Starting Phase 2: Standard DQN Training ---
+Episode 10 | Mean Rewards: Eng=99.18, Div=49.11, Fair=104.75
+Episode 20 | Mean Rewards: Eng=99.02, Div=49.81, Fair=103.93
+Episode 30 | Mean Rewards: Eng=99.14, Div=49.29, Fair=102.26
+Episode 40 | Mean Rewards: Eng=99.28, Div=48.74, Fair=105.39
+Episode 50 | Mean Rewards: Eng=99.32, Div=48.72, Fair=104.08
+Episode 60 | Mean Rewards: Eng=99.84, Div=46.22, Fair=87.61
+Episode 70 | Mean Rewards: Eng=98.70, Div=51.44, Fair=80.58
+Episode 80 | Mean Rewards: Eng=98.59, Div=51.63, Fair=70.41
+Episode 90 | Mean Rewards: Eng=98.83, Div=50.76, Fair=86.12
+Episode 100 | Mean Rewards: Eng=97.40, Div=57.11, Fair=103.97
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+       EXECUTING PIPELINE FOR SEED 789       
+=======================================
+
+=======================================
+     EVALUATING ENVELOPE MOAC AGENT    
+=======================================
+--- Starting Phase 2: Envelope MOAC Training ---
+Episode 10 | Mean Rewards: Eng=108.69, Div=4.64, Fair=40.19
+Episode 20 | Mean Rewards: Eng=108.83, Div=3.97, Fair=42.53
+Episode 30 | Mean Rewards: Eng=107.94, Div=8.32, Fair=40.74
+Episode 40 | Mean Rewards: Eng=109.05, Div=2.96, Fair=48.63
+Episode 50 | Mean Rewards: Eng=108.61, Div=5.01, Fair=41.45
+Episode 60 | Mean Rewards: Eng=107.97, Div=8.18, Fair=42.14
+Episode 70 | Mean Rewards: Eng=108.99, Div=3.26, Fair=31.99
+Episode 80 | Mean Rewards: Eng=108.51, Div=5.52, Fair=30.62
+Episode 90 | Mean Rewards: Eng=108.70, Div=4.59, Fair=26.53
+Episode 100 | Mean Rewards: Eng=108.20, Div=7.00, Fair=33.29
+
+--- Evaluating Envelope MOAC Frontier ---
+Evaluating preference vector: w = (np.float32(1.0), np.float32(0.0), np.float32(0.0))
+Evaluating preference vector: w = (np.float32(0.33), np.float32(0.33), np.float32(0.34))
+
+=======================================
+      EVALUATING PARETO-DQN AGENT      
+=======================================
+--- Starting Phase 2: Pareto-DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.68, Div=51.37, Fair=143.39
+Episode 20 | Mean Rewards: Eng=97.02, Div=58.80, Fair=173.73
+Episode 30 | Mean Rewards: Eng=98.17, Div=53.76, Fair=151.85
+Episode 40 | Mean Rewards: Eng=99.12, Div=49.34, Fair=117.65
+Episode 50 | Mean Rewards: Eng=98.53, Div=51.85, Fair=112.25
+Episode 60 | Mean Rewards: Eng=98.73, Div=51.14, Fair=121.18
+Episode 70 | Mean Rewards: Eng=98.35, Div=52.83, Fair=122.72
+Episode 80 | Mean Rewards: Eng=98.73, Div=51.07, Fair=112.46
+Episode 90 | Mean Rewards: Eng=97.93, Div=54.61, Fair=112.31
+Episode 100 | Mean Rewards: Eng=98.74, Div=51.10, Fair=108.60
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+     EVALUATING STANDARD DQN AGENT     
+=======================================
+--- Starting Phase 2: Standard DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.46, Div=52.50, Fair=131.09
+Episode 20 | Mean Rewards: Eng=98.67, Div=51.54, Fair=128.18
+Episode 30 | Mean Rewards: Eng=99.99, Div=45.65, Fair=99.54
+Episode 40 | Mean Rewards: Eng=99.43, Div=48.07, Fair=109.55
+Episode 50 | Mean Rewards: Eng=99.39, Div=48.33, Fair=113.54
+Episode 60 | Mean Rewards: Eng=99.32, Div=48.58, Fair=103.04
+Episode 70 | Mean Rewards: Eng=99.08, Div=49.71, Fair=89.15
+Episode 80 | Mean Rewards: Eng=98.58, Div=51.64, Fair=68.20
+Episode 90 | Mean Rewards: Eng=98.12, Div=53.85, Fair=84.93
+Episode 100 | Mean Rewards: Eng=98.52, Div=51.97, Fair=73.68
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+       EXECUTING PIPELINE FOR SEED 999       
+=======================================
+
+=======================================
+     EVALUATING ENVELOPE MOAC AGENT    
+=======================================
+--- Starting Phase 2: Envelope MOAC Training ---
+Episode 10 | Mean Rewards: Eng=108.41, Div=6.00, Fair=51.61
+Episode 20 | Mean Rewards: Eng=108.99, Div=3.23, Fair=47.27
+Episode 30 | Mean Rewards: Eng=108.97, Div=3.31, Fair=46.00
+Episode 40 | Mean Rewards: Eng=109.04, Div=3.01, Fair=43.88
+Episode 50 | Mean Rewards: Eng=108.68, Div=4.74, Fair=35.42
+Episode 60 | Mean Rewards: Eng=108.73, Div=4.50, Fair=45.03
+Episode 70 | Mean Rewards: Eng=108.39, Div=6.16, Fair=44.21
+Episode 80 | Mean Rewards: Eng=108.84, Div=3.90, Fair=49.42
+Episode 90 | Mean Rewards: Eng=108.55, Div=5.34, Fair=28.49
+Episode 100 | Mean Rewards: Eng=108.77, Div=4.28, Fair=28.68
+
+--- Evaluating Envelope MOAC Frontier ---
+Evaluating preference vector: w = (np.float32(1.0), np.float32(0.0), np.float32(0.0))
+Evaluating preference vector: w = (np.float32(0.33), np.float32(0.33), np.float32(0.34))
+
+=======================================
+      EVALUATING PARETO-DQN AGENT      
+=======================================
+--- Starting Phase 2: Pareto-DQN Training ---
+Episode 10 | Mean Rewards: Eng=98.83, Div=50.87, Fair=141.17
+Episode 20 | Mean Rewards: Eng=99.06, Div=49.62, Fair=145.70
+Episode 30 | Mean Rewards: Eng=98.56, Div=51.86, Fair=141.47
+Episode 40 | Mean Rewards: Eng=98.01, Div=54.36, Fair=133.10
+Episode 50 | Mean Rewards: Eng=98.31, Div=52.93, Fair=118.25
+Episode 60 | Mean Rewards: Eng=98.37, Div=52.98, Fair=153.41
+Episode 70 | Mean Rewards: Eng=98.25, Div=53.45, Fair=142.85
+Episode 80 | Mean Rewards: Eng=98.41, Div=52.60, Fair=117.89
+Episode 90 | Mean Rewards: Eng=97.59, Div=56.01, Fair=116.62
+Episode 100 | Mean Rewards: Eng=98.64, Div=51.59, Fair=111.56
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+     EVALUATING STANDARD DQN AGENT     
+=======================================
+--- Starting Phase 2: Standard DQN Training ---
+Episode 10 | Mean Rewards: Eng=99.20, Div=49.13, Fair=106.23
+Episode 20 | Mean Rewards: Eng=99.51, Div=47.76, Fair=101.06
+Episode 30 | Mean Rewards: Eng=99.84, Div=46.38, Fair=109.80
+Episode 40 | Mean Rewards: Eng=99.21, Div=49.10, Fair=116.68
+Episode 50 | Mean Rewards: Eng=98.98, Div=50.04, Fair=117.01
+Episode 60 | Mean Rewards: Eng=97.59, Div=56.18, Fair=119.35
+Episode 70 | Mean Rewards: Eng=98.59, Div=52.01, Fair=89.09
+Episode 80 | Mean Rewards: Eng=98.72, Div=51.02, Fair=69.07
+Episode 90 | Mean Rewards: Eng=98.73, Div=51.21, Fair=91.07
+Episode 100 | Mean Rewards: Eng=98.37, Div=52.81, Fair=94.68
+
+--- Starting Phase 3: Evaluation ---
+
+=======================================
+      COMPUTING MEAN METRICS ACROSS SEEDS      
+=======================================
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:940: FINISHME: support YUV colorspace with DRM format modifiers
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:972: FINISHME: support more multi-planar formats with DRM modifiers
