@@ -1,5 +1,5 @@
-oading Sentence Transformer model: all-MiniLM-L6-v2 (forcing CPU)...
-Loading weights: 100%|███████████████████████| 103/103 [00:00<00:00, 539.51it/s]
+Loading Sentence Transformer model: all-MiniLM-L6-v2 (forcing CPU)...
+Loading weights: 100%|██████████████████████| 103/103 [00:00<00:00, 9789.12it/s]
 BertModel LOAD REPORT from: sentence-transformers/all-MiniLM-L6-v2
 Key                     | Status     |  | 
 ------------------------+------------+--+-
@@ -9,7 +9,7 @@ Notes:
 - UNEXPECTED	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
 Aggregating metadata into semantic documents...
 Encoding documents into dense semantic vectors...
-Batches: 100%|████████████████████████████████| 305/305 [00:15<00:00, 20.00it/s]
+Batches: 100%|████████████████████████████████| 305/305 [00:20<00:00, 14.92it/s]
 Building Semantic KNN Index...
 Computing User Semantic Centroids...
 
@@ -306,5 +306,3 @@ Episode 100 | Mean Rewards: Eng=98.37, Div=52.81, Fair=94.68
 =======================================
       COMPUTING MEAN METRICS ACROSS SEEDS      
 =======================================
-MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:940: FINISHME: support YUV colorspace with DRM format modifiers
-MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:972: FINISHME: support more multi-planar formats with DRM modifiers

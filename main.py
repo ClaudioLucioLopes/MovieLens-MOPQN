@@ -331,18 +331,18 @@ def plot_learning_curves(dqn_hist, pareto_hist, moac_hist=None, window=10):
     plt.suptitle(f'Policy Convergence by Objective (Moving Average Window = {window})', fontsize=16)
     plt.tight_layout()
     plt.savefig('learning_curves_convergence.svg', format='svg')
-    plt.show()
+    # plt.show()
 
 def plot_filter_bubble(dqn_m, pareto_m, moac_eng_m, moac_bal_m):
     """Compares semantic homogenization across methods and preference weights."""
     plt.figure(figsize=(10, 6))
     # We use 'embedding_variances' based on the Phase 3 metric collection output
-    plt.plot(dqn_m['embedding_variances'], label='Standard DQN (Bubbled)', color='red', linestyle='--')
-    plt.plot(pareto_m['embedding_variances'], label='Pareto-DQN (Many-Obj)', color='blue')
+    plt.plot(dqn_m['embedding_variances'], label='Standard DQN', color='red', linestyle='--')
+    plt.plot(pareto_m['embedding_variances'], label='Pareto-DQN', color='blue')
     # Envelope MOAC with pure engagement preference (Expected to bubble)
-    plt.plot(moac_eng_m['embedding_variances'], label='Envelope MOAC ($w_{eng}$ - Bubbled)', color='orange', linestyle='-.')
+    plt.plot(moac_eng_m['embedding_variances'], label='Envelope MOAC ($w_{eng}$)', color='orange', linestyle='-.')
     # Envelope MOAC with balanced preference (Expected to maintain variance)
-    plt.plot(moac_bal_m['embedding_variances'], label='Envelope MOAC ($w_{bal}$ - Responsible)', color='green', linewidth=2)
+    plt.plot(moac_bal_m['embedding_variances'], label='Envelope MOAC ($w_{bal}$)', color='green', linewidth=2)
     plt.title('Mitigating Filter Bubbles: User Embedding Variance')
     plt.xlabel('Evaluation Episode')
     plt.ylabel('Semantic Variance (Trace of Cov)')
@@ -355,7 +355,7 @@ def plot_price_of_responsibility(dqn_m, pareto_m, moac_eng_m, moac_bal_m):
     plt.figure(figsize=(10, 6))
     metrics_list = [dqn_m, pareto_m, moac_eng_m, moac_bal_m]
     colors = ['red', 'blue', 'orange', 'green']
-    labels = ['DQN', 'Pareto-DQN', 'Envelope MOAC ($w_{eng}$)', 'Envelope MOAC ($w_{bal}$)']
+    labels = ['Standard DQN', 'Pareto-DQN', 'Envelope MOAC ($w_{eng}$)', 'Envelope MOAC ($w_{bal}$)']
     for m, c, l in zip(metrics_list, colors, labels):
         r = np.array(m['rewards'])
         plt.scatter(r[:,0], r[:,1], color=c, label=l, alpha=0.6)
@@ -373,7 +373,7 @@ def plot_pareto_3d(dqn_m, pareto_m, moac_eng_m, moac_bal_m):
     ax = fig.add_subplot(111, projection='3d')
     metrics_list = [dqn_m, pareto_m, moac_eng_m, moac_bal_m]
     colors = ['red', 'blue', 'orange', 'green']
-    labels = ['DQN', 'Pareto-DQN', 'Envelope MOAC ($w_{eng}$)', 'Envelope MOAC ($w_{bal}$)']
+    labels = ['Standard DQN', 'Pareto-DQN', 'Envelope MOAC ($w_{eng}$)', 'Envelope MOAC ($w_{bal}$)']
     markers = ['x', 'o', '^', 's'] # Differentiating markers helps in 3D
     
     for m, c, l, marker in zip(metrics_list, colors, labels, markers):
@@ -390,15 +390,15 @@ def plot_pareto_3d(dqn_m, pareto_m, moac_eng_m, moac_bal_m):
     
     plt.legend()
     plt.savefig('comparison_pareto_3d.svg',format="svg")
-    plt.show()
+    # plt.show()
 
 
 def plot_filter_bubble_2(dqn_m, pareto_m):
     """Compares semantic homogenization across methods and preference weights."""
     plt.figure(figsize=(10, 6))
     # We use 'embedding_variances' based on the Phase 3 metric collection output
-    plt.plot(dqn_m['embedding_variances'], label='Standard DQN (Bubbled)', color='red', linestyle='--')
-    plt.plot(pareto_m['embedding_variances'], label='Pareto-DQN (Many-Obj)', color='blue')
+    plt.plot(dqn_m['embedding_variances'], label='Standard DQN', color='red', linestyle='--')
+    plt.plot(pareto_m['embedding_variances'], label='Pareto-DQN', color='blue')
     plt.title('Mitigating Filter Bubbles: User Embedding Variance')
     plt.xlabel('Evaluation Episode')
     plt.ylabel('Semantic Variance (Trace of Cov)')
@@ -411,7 +411,7 @@ def plot_price_of_responsibility_2(dqn_m, pareto_m):
     plt.figure(figsize=(10, 6))
     metrics_list = [dqn_m, pareto_m]
     colors = ['red', 'blue']
-    labels = ['DQN', 'Pareto-DQN']
+    labels = ['Standard DQN', 'Pareto-DQN']
     for m, c, l in zip(metrics_list, colors, labels):
         r = np.array(m['rewards'])
         plt.scatter(r[:,0], r[:,1], color=c, label=l, alpha=0.6)
@@ -429,7 +429,7 @@ def plot_pareto_3d_2(dqn_m, pareto_m):
     ax = fig.add_subplot(111, projection='3d')
     metrics_list = [dqn_m, pareto_m]
     colors = ['red', 'blue']
-    labels = ['DQN', 'Pareto-DQN']
+    labels = ['Standard DQN', 'Pareto-DQN']
     markers = ['x', 'o'] # Differentiating markers helps in 3D
     
     for m, c, l, marker in zip(metrics_list, colors, labels, markers):
@@ -477,7 +477,7 @@ if __name__ == '__main__':
 
     # 2. Define the Evaluation Scope
     seeds = [42, 123, 456, 789, 999]
-    # seeds = [42]
+    #seeds = [42]
     
     # Metric Accumulators
     seed_dqn_metrics = []
@@ -591,7 +591,7 @@ if __name__ == '__main__':
 
     # 7. Plot Convergence
     plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist, final_moac_train_hist, window=10)
-    # plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist,window=10)
+    plot_learning_curves(final_dqn_train_hist, final_pareto_train_hist,window=10)
 
 
 
