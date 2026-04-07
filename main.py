@@ -9,6 +9,7 @@ from Pareto import ParetoAgent
 from ReplayMemory import ItemCentricReplayBuffer, PreferenceAwareBuffer
 from StandardDQN import StandardDQNAgent 
 from EnvelopeMOAC import EnvelopeMOACAgent
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 import random
 
@@ -20,21 +21,59 @@ def set_global_seeds(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-def compute_mean_metrics(metrics_list):
-    """
-    Computes the mean across seeds for trajectory covariance (variances) 
-    and objective returns (rewards).
-    """
-    mean_metrics = {}
-    # Extract matrices: shape (num_seeds, num_users, num_objectives)
-    stacked_rewards = np.array([m['rewards'] for m in metrics_list])
-    stacked_variances = np.array([m['embedding_variances'] for m in metrics_list])
+# def compute_mean_metrics(metrics_list):
+#     """
+#     Computes the mean across seeds for trajectory covariance (variances) 
+#     and objective returns (rewards).
+#     """
+#     mean_metrics = {}
+#     # Extract matrices: shape (num_seeds, num_users, num_objectives)
+#     stacked_rewards = np.array([m['rewards'] for m in metrics_list])
+#     stacked_variances = np.array([m['embedding_variances'] for m in metrics_list])
     
-    mean_metrics['rewards'] = np.mean(stacked_rewards, axis=0)
-    mean_metrics['embedding_variances'] = np.mean(stacked_variances, axis=0)
+#     mean_metrics['rewards'] = np.mean(stacked_rewards, axis=0)
+#     mean_metrics['embedding_variances'] = np.mean(stacked_variances, axis=0)
     
-    return mean_metrics
+#     return mean_metrics
 
+
+
+def extract_non_dominated_metrics(metrics_list):
+    """
+    Aggregates multi-objective returns across seeds and extracts the true 
+    non-dominated (Pareto-optimal) set of solutions.
+    """
+    # 1. Stack all evaluated solutions across all seeds
+    # From: list of dicts with 'rewards' shape (num_users, num_objectives)
+    # To: flat arrays of shape (total_solutions, num_objectives)
+    stacked_rewards = np.vstack([m['rewards'] for m in metrics_list])
+    
+    # Flatten variances to match the first dimension of stacked_rewards
+    # Assumes 'embedding_variances' was a 1D array per seed of length (num_users,)
+    stacked_variances = np.concatenate([m['embedding_variances'] for m in metrics_list])
+    
+    # 2. Convert RL Maximization to MOO Minimization for pymoo
+    costs = -1.0 * stacked_rewards
+    
+    # 3. Perform Fast Non-Dominated Sorting
+    nds = NonDominatedSorting()
+    # only_non_dominated_front=True optimizes the sort to stop after finding Front 0
+    fronts = nds.do(costs, only_non_dominated_front=True)
+    
+    # Extract the indices for the strictly non-dominated solutions
+    nd_indices = fronts[0] if isinstance(fronts, list) else fronts
+    
+    # 4. Filter the metric spaces
+    nd_rewards = stacked_rewards[nd_indices]
+    nd_variances = stacked_variances[nd_indices]
+    
+    # 5. Sort by the first objective (e.g., Engagement) for cleaner 2D/3D plotting
+    sort_idx = np.argsort(nd_rewards[:, 0])
+    
+    return {
+        'rewards': nd_rewards[sort_idx],
+        'embedding_variances': nd_variances[sort_idx]
+    }
 
 def train_ParetoDQN_agent(env, agent, buffer, episodes=100, batch_size=32):
     """Phase 2: Training via Experience Replay."""
@@ -477,7 +516,7 @@ if __name__ == '__main__':
 
     # 2. Define the Evaluation Scope
     seeds = [42, 123, 456, 789, 999]
-    #seeds = [42]
+    # seeds = [42]
     
     # Metric Accumulators
     seed_dqn_metrics = []
@@ -556,15 +595,15 @@ if __name__ == '__main__':
         seed_dqn_metrics.append(dqn_metrics)
 
 
-    # 5. Compute Mean over Seeds
+    # 5. Compute the True Non-Dominated Metrics Across Seeds
     print("\n=======================================")
-    print("      COMPUTING MEAN METRICS ACROSS SEEDS      ")
+    print("  EXTRACTING PARETO FRONTIERS ACROSS SEEDS  ")
     print("=======================================")
     
-    final_dqn_metrics = compute_mean_metrics(seed_dqn_metrics)
-    final_pareto_metrics = compute_mean_metrics(seed_pareto_metrics)
-    final_moac_eng_metrics = compute_mean_metrics(seed_moac_eng_metrics)
-    final_moac_bal_metrics = compute_mean_metrics(seed_moac_bal_metrics)
+    final_dqn_metrics = extract_non_dominated_metrics(seed_dqn_metrics)
+    final_pareto_metrics = extract_non_dominated_metrics(seed_pareto_metrics)
+    final_moac_eng_metrics = extract_non_dominated_metrics(seed_moac_eng_metrics)
+    final_moac_bal_metrics = extract_non_dominated_metrics(seed_moac_bal_metrics)
 
     # Aggregate Training Histories across seeds (Compute expected trajectory)
     # Shape becomes (episodes, num_objectives)
